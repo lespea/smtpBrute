@@ -47,12 +47,6 @@ func scanHost(
 	// Default logger
 	l := log.With().Str("Host", host).Logger()
 
-	// Make a connection to the smtp server prepare for sending txt commands to it.  Panic if there's an issue
-	conn, err := textproto.Dial("tcp", host)
-	if err != nil {
-		l.Fatal().Err(err).Msg("Couldn't initiate connection to host")
-	}
-
 	// So we can easily terminate early (from a ctrl-c or whatever) we need to spawn 2
 	// goroutines so we can return without waiting for the usersC to have space available
 	done := make(chan interface{}, 0)
@@ -67,28 +61,46 @@ func scanHost(
 	go func() {
 		defer func() { done <- nil }()
 
-		// Process all of the usernames we want
-		for user := range userChan {
-			// Bail early if the context says to
-			if err := ctx.Err(); err != nil {
-				return
-			}
+		n := int(opts.connsPerHost)
+		var swg sync.WaitGroup
+		swg.Add(n)
 
-			// Test the host with the current user
-			failed := testUser(user, host, valid, conn)
+		for i := 0; i < n; i++ {
+			go func() {
+				defer swg.Done()
 
-			// If we're not skipping the chach and we haven't terminated early from the context, push the
-			// user onto the appropriate channel depending if the test passed or failed
-			if !opts.skip {
-				if err := ctx.Err(); err == nil {
-					if failed {
-						attemptedErrC <- user
-					} else {
-						attemptedC <- user
+				// Make a connection to the smtp server prepare for sending txt commands to it.  Panic if there's an issue
+				conn, err := textproto.Dial("tcp", host)
+				if err != nil {
+					l.Fatal().Err(err).Msg("Couldn't initiate connection to host")
+				}
+
+				// Process all of the usernames we want
+				for user := range userChan {
+					// Bail early if the context says to
+					if err := ctx.Err(); err != nil {
+						return
+					}
+
+					// Test the host with the current user
+					failed := testUser(user, host, valid, conn)
+
+					// If we're not skipping the chach and we haven't terminated early from the context, push the
+					// user onto the appropriate channel depending if the test passed or failed
+					if !opts.skip {
+						if err := ctx.Err(); err == nil {
+							if failed {
+								attemptedErrC <- user
+							} else {
+								attemptedC <- user
+							}
+						}
 					}
 				}
-			}
+			}()
 		}
+
+		swg.Wait()
 	}()
 
 	<-done
