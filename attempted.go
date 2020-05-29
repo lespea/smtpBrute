@@ -147,7 +147,7 @@ func getCaches(skip bool, hosts int, wg *sync.WaitGroup) (chan string, chan stri
 	attemptedErr := make(chan string, 10)
 
 	wg.Add(3)
-	go genWriter(skip, ValidName, Valid, valid, nil, wg)
+	go genWriter(false, ValidName, Valid, valid, nil, wg)
 	go cacheWriter(skip, AttemptedName, Attempted, hosts, attempted, wg)
 	go genWriter(skip, AttemptedErrorName, AttemptedError, attemptedErr, attempted, wg)
 
