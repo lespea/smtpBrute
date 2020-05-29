@@ -3,8 +3,10 @@ package main
 import (
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"regexp"
+	"runtime"
 	"strconv"
 
 	"github.com/akamensky/argparse"
@@ -109,9 +111,22 @@ func getOpts() opts {
 		Strs("Hosts", *hosts).
 		Msg("Starting smtp brute")
 
+	conns := uint8(*connsPerHost)
+	if conns == 0 {
+		n := runtime.NumCPU()
+
+		if n < 1 {
+			conns = 1
+		} else if n > math.MaxUint8 {
+			conns = math.MaxUint8
+		} else {
+			conns = uint8(runtime.NumCPU())
+		}
+	}
+
 	return opts{
 		cache:        getAttempted(*skipCache),
-		connsPerHost: uint8(*connsPerHost),
+		connsPerHost: conns,
 		hosts:        *hosts,
 		skip:         *skipCache,
 		fh:           usersFH,
