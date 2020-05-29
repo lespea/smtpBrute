@@ -1,0 +1,6 @@
+.idea/
+./smtpBrute
+*.exe
+*.log
+*.txt
+*.iml
