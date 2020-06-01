@@ -1,6 +1,12 @@
+# Intellij
 .idea/
+*.iml
+
+# Build files
 ./smtpBrute
 *.exe
+
+# Txt files
 *.log
 *.txt
-*.iml
+*.csv
