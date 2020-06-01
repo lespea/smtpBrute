@@ -1,4 +1,4 @@
-module smtpBrute
+module github.com/lespea/smtpBrute
 
 go 1.14
 
