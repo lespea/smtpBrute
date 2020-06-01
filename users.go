@@ -39,7 +39,7 @@ func getUsers(ctx context.Context, chans []chan string, o opts) {
 	go func() {
 		defer func() { done <- nil }()
 
-		s := bufio.NewScanner(o.fh)
+		s := bufio.NewScanner(o.input)
 		for s.Scan() {
 			// terminate if the context has ended while we were waiting
 			if err := ctx.Err(); err != nil {
@@ -48,13 +48,9 @@ func getUsers(ctx context.Context, chans []chan string, o opts) {
 
 			t := trimUser(s.Text())
 
-			// Put the next username to test on the channels if we haven't tested it already
-			if o.cache == nil && !o.cache[t] {
-				for _, c := range chans {
-					c <- t
-				}
+			for _, c := range chans {
+				c <- t
 			}
-
 		}
 	}()
 

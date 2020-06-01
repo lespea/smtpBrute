@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"regexp"
@@ -15,7 +16,8 @@ import (
 
 const (
 	DefaultConnsPerHost = 10
-	DefaultUserList     = "users.txt"
+	DefaultOutName      = "findings.csv"
+	DefaultInput        = "users.txt"
 )
 
 var (
@@ -58,11 +60,11 @@ func validConns(count []string) error {
 
 // Info we want from the user when running
 type opts struct {
-	// Holds the previously scanned entries
-	cache map[string]bool
-
 	// How many simultaneous outgoing connections we should try per host
 	connsPerHost uint8
+
+	// Fresh start
+	fresh bool
 
 	// The list of hosts we should scan
 	hosts []string
@@ -71,18 +73,21 @@ type opts struct {
 	skip bool
 
 	// The filehandle to the users input file
-	fh *os.File
+	input io.Reader
 
 	// Cleanup function (this needs to be called for cleanup
 	close func()
+
+	// The cache filename
+	outName string
 }
 
 // Parse all of the command line arguments and upt the values into a common struct we can use everywhere
 func getOpts() opts {
 	parser := argparse.NewParser("smtpBrue", "brute for an smtp server")
 
-	skipCache := parser.Flag("", "nocache", &argparse.Options{
-		Help:    "don't use any cache files (do a full scan",
+	fresh := parser.Flag("", "fresh", &argparse.Options{
+		Help:    "deletes the existing output csv and starts fresh",
 		Default: false,
 	})
 
@@ -98,17 +103,29 @@ func getOpts() opts {
 		Validate: validHostname,
 	})
 
-	usersFH := parser.File("u", "users", os.O_RDONLY, 0444, &argparse.Options{
+	inputFH := parser.File("i", "input", os.O_RDONLY, 0444, &argparse.Options{
 		Help:     "file containing the list of usernames to try",
 		Required: true,
-		Default:  DefaultUserList,
+		Default:  DefaultInput,
 	})
+
+	outNameP := parser.String("o", "output", &argparse.Options{
+		Help:     "the csv to write the findings to",
+		Required: true,
+		Default:  DefaultOutName,
+	})
+
+	outName := *outNameP
+	if len(outName) == 0 {
+		log.Fatal().Msg("The csv file must be a non-empty string")
+	}
 
 	// Log what we're using
 	log.
 		Info().
 		Int("Conns Per Host", *connsPerHost).
 		Strs("Hosts", *hosts).
+		Str("Output CSV", outName).
 		Msg("Starting smtp brute")
 
 	conns := uint8(*connsPerHost)
@@ -125,11 +142,11 @@ func getOpts() opts {
 	}
 
 	return opts{
-		cache:        getAttempted(*skipCache),
 		connsPerHost: conns,
+		fresh:        *fresh,
 		hosts:        *hosts,
-		skip:         *skipCache,
-		fh:           usersFH,
-		close:        safeClose("users", usersFH.Name(), usersFH),
+		outName:      outName,
+		input:        inputFH,
+		close:        safeClose("input", inputFH.Name(), inputFH),
 	}
 }
