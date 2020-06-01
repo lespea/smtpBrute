@@ -1,4 +1,4 @@
-package main
+package util
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 )
 
 // Helper to watch for early termination signals (ctrl-c, etc) and handle it gracefully
-func setupSigCatch() (context.Context, context.CancelFunc) {
+func SetupSigCatch() (context.Context, context.CancelFunc) {
 	sigs := make(chan os.Signal, 1)
 
 	ctx, done := context.WithCancel(context.Background())

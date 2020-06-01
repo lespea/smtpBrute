@@ -12,6 +12,8 @@ import (
 
 	"github.com/akamensky/argparse"
 	log "github.com/rs/zerolog/log"
+
+	"github.com/lespea/smtpBrute/util"
 )
 
 const (
@@ -21,7 +23,7 @@ const (
 )
 
 var (
-	validHostRe = regexp.MustCompile(`^(?:[a-zA-Z0-9_\-]{1,255}\.)(?::\d{1,5})?$`)
+	validHostRe = regexp.MustCompile(`^(?:[a-zA-Z0-9_\-]{1,255}\.)*[a-zA-Z0-9_\-]{1,255}(?::\d{1,5})?$`)
 )
 
 // A host shouldn't be greater than 255 chars and match the validHostRe regex
@@ -41,7 +43,11 @@ func validHostname(hosts []string) (err error) {
 
 	for _, host := range hosts {
 		if herr := validHost(host); herr != nil {
-			err = fmt.Errorf("%v: %w", herr, err)
+			if err != nil {
+				err = fmt.Errorf("%v: %w", herr, err)
+			} else {
+				err = herr
+			}
 		}
 	}
 
@@ -97,23 +103,25 @@ func getOpts() opts {
 		Validate: validConns,
 	})
 
-	hosts := parser.StringList("h", "hosts", &argparse.Options{
-		Help:     "the hosts we should try brute forcing",
+	targets := parser.StringList("t", "targets", &argparse.Options{
+		Help:     "the targets we should try brute forcing",
 		Required: true,
 		Validate: validHostname,
 	})
 
 	inputFH := parser.File("i", "input", os.O_RDONLY, 0444, &argparse.Options{
-		Help:     "file containing the list of usernames to try",
-		Required: true,
-		Default:  DefaultInput,
+		Help:    "file containing the list of usernames to try",
+		Default: DefaultInput,
 	})
 
 	outNameP := parser.String("o", "output", &argparse.Options{
-		Help:     "the csv to write the findings to",
-		Required: true,
-		Default:  DefaultOutName,
+		Help:    "the csv to write the findings to",
+		Default: DefaultOutName,
 	})
+
+	if err := parser.Parse(os.Args); err != nil {
+		log.Fatal().Err(err).Msg("Error parsing args")
+	}
 
 	outName := *outNameP
 	if len(outName) == 0 {
@@ -124,7 +132,7 @@ func getOpts() opts {
 	log.
 		Info().
 		Int("Conns Per Host", *connsPerHost).
-		Strs("Hosts", *hosts).
+		Strs("Hosts", *targets).
 		Str("Output CSV", outName).
 		Msg("Starting smtp brute")
 
@@ -144,9 +152,9 @@ func getOpts() opts {
 	return opts{
 		connsPerHost: conns,
 		fresh:        *fresh,
-		hosts:        *hosts,
+		hosts:        *targets,
 		outName:      outName,
 		input:        inputFH,
-		close:        safeClose("input", inputFH.Name(), inputFH),
+		close:        util.SafeClose("input", inputFH.Name(), inputFH),
 	}
 }

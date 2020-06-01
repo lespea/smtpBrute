@@ -4,16 +4,18 @@ import (
 	"sync"
 
 	"github.com/rs/zerolog/log"
+
+	"github.com/lespea/smtpBrute/util"
 )
 
 func init() {
-	setupLogging()
+	util.SetupLogging()
 }
 
 // Does the scanning
 func main() {
 	// Setup signal handling
-	ctx, stop := setupSigCatch()
+	ctx, stop := util.SetupSigCatch()
 	defer stop()
 
 	// Parse the cmd opts

@@ -10,6 +10,8 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+
+	"github.com/lespea/smtpBrute/util"
 )
 
 const (
@@ -54,7 +56,7 @@ func getCachePath(path string) map[string]*map[string]bool {
 		return make(map[string]*map[string]bool)
 	}
 	defer func() {
-		safeClose("write cache", path, fh)
+		util.SafeClose("write cache", path, fh)
 	}()
 
 	return getCacheFH(fh)
@@ -160,7 +162,7 @@ func startWriterPath(path string, append bool, wg *sync.WaitGroup) chan scanResu
 		}
 	}
 
-	return startWriter(fh, safeClose(name, path, fh), l, append, wg)
+	return startWriter(fh, util.SafeClose(name, path, fh), l, append, wg)
 }
 
 func startWriter(fh io.Writer, closer func(), l zerolog.Logger, append bool, wg *sync.WaitGroup) chan scanResults {

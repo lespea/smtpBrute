@@ -1,4 +1,4 @@
-package main
+package util
 
 import (
 	"runtime"
@@ -8,7 +8,7 @@ import (
 )
 
 // Somewhat sensible default logging
-func setupLogging() {
+func SetupLogging() {
 	log.Level(zerolog.InfoLevel)
 
 	out := zerolog.NewConsoleWriter()

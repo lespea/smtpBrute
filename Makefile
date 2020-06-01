@@ -1,6 +1,6 @@
 OUTFILE=smtpBrute.exe
 
-.PHONY: main fmt vet check compile run
+.PHONY: main fmt vet clean check compile run
 
 main: compile
 
@@ -17,7 +17,7 @@ clean:
 	rm -f $(OUTFILE)
 
 compile: clean check
-	go build -ldflags "-s -w" -trimpath -o $(OUTFILE) ./...
+	go build -ldflags "-s -w" -trimpath -o $(OUTFILE) .
 
 run: compile
-	./$(OUTFILE)
+	./$(OUTFILE) -t localhost
