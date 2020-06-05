@@ -68,26 +68,42 @@ func scanHost(
 			go func() {
 				defer swg.Done()
 
-				// Make a connection to the smtp server prepare for sending txt commands to it.  Panic if there's an issue
-				conn, err := textproto.Dial("tcp", host)
-				if err != nil {
-					l.Fatal().Err(err).Msg("Couldn't initiate connection to host")
-				}
+				var lastUser string
 
-				// Process all of the usernames we want
-				for user := range userChan {
-					// Bail early if the context says to
-					if err := ctx.Err(); err != nil {
-						return
+			connLoop:
+				for {
+					// Make a connection to the smtp server prepare for sending txt commands to it.  Panic if there's an issue
+					conn, err := textproto.Dial("tcp", host)
+					if err != nil {
+						l.Fatal().Err(err).Msg("Couldn't initiate connection to host")
 					}
 
-					// Maybe skip this user
-					if doCache && cache[user] {
-						continue
+					if lastUser != "" {
+						if testUser(scanResults{server: host, user: lastUser}, results, conn) {
+							continue connLoop
+						} else {
+							lastUser = ""
+						}
 					}
 
-					// Test the host with the current user
-					testUser(scanResults{server: host, user: user}, results, conn)
+					// Process all of the usernames we want
+					for user := range userChan {
+						// Bail early if the context says to
+						if err := ctx.Err(); err != nil {
+							return
+						}
+
+						// Maybe skip this user
+						if doCache && cache[user] {
+							continue
+						}
+
+						// Test the host with the current user
+						if testUser(scanResults{server: host, user: user}, results, conn) {
+							lastUser = user
+							continue connLoop
+						}
+					}
 				}
 			}()
 		}
@@ -99,17 +115,22 @@ func scanHost(
 }
 
 // Test the host/user combo against the smtp server.  If it's valid send it to the valid channel
-func testUser(sr scanResults, results chan scanResults, conn *textproto.Conn) {
+func testUser(sr scanResults, results chan scanResults, conn *textproto.Conn) bool {
 	l := log.With().Str("Host", sr.server).Str("User", sr.user).Logger()
 
 	// Format the host/user combo we want to verify
 	verifyStr := fmt.Sprintf("%s:%s", sr.server, sr.user)
 	if id, err := conn.Cmd("VRFY %s", verifyStr); err != nil {
-		// Do we want to pail here?
-		l.Err(err).Msg("Error sending the verify message?")
 
-		sr.err = err
-		results <- sr
+		if strings.Contains(err.Error(), "reset by peer") {
+			l.Err(err).Msg("Connection reset; retrying")
+			return true
+		} else {
+			// Do we want to bail here?
+			l.Err(err).Msg("Error sending the verify message?")
+			sr.err = err
+			results <- sr
+		}
 	} else {
 		// Do the comms
 		conn.StartResponse(id)
@@ -124,11 +145,13 @@ func testUser(sr scanResults, results chan scanResults, conn *textproto.Conn) {
 
 			// Valid codes from https://cr.yp.to/smtp/vrfy.html
 		} else {
-			l.Info().Int("Code", code).Str("Msg", msg).Msg("Got resopnse from server")
+			l.Info().Int("Code", code).Str("Msg", msg).Msg("Got response from server")
 
 			sr.code = int64(code)
 			sr.msg = msg
 			results <- sr
 		}
 	}
+
+	return false
 }
