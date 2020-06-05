@@ -104,6 +104,9 @@ func scanHost(
 							continue connLoop
 						}
 					}
+
+					// We're done
+					return
 				}
 			}()
 		}
