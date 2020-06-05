@@ -6,6 +6,7 @@ import (
 	"net/textproto"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/rs/zerolog/log"
 )
@@ -75,11 +76,16 @@ func scanHost(
 					// Make a connection to the smtp server prepare for sending txt commands to it.  Panic if there's an issue
 					conn, err := textproto.Dial("tcp", host)
 					if err != nil {
-						l.Fatal().Err(err).Msg("Couldn't initiate connection to host")
+						l.Err(err).Msg("Couldn't initiate connection to host")
+						time.Sleep(5 * time.Second)
+						continue
 					}
 
 					if lastUser != "" {
 						if testUser(scanResults{server: host, user: lastUser}, results, conn) {
+							if err := conn.Close(); err != nil {
+								log.Warn().Err(err).Msg("Error closing connection")
+							}
 							continue connLoop
 						} else {
 							lastUser = ""
@@ -101,8 +107,15 @@ func scanHost(
 						// Test the host with the current user
 						if testUser(scanResults{server: host, user: user}, results, conn) {
 							lastUser = user
+							if err := conn.Close(); err != nil {
+								log.Warn().Err(err).Msg("Error closing connection")
+							}
 							continue connLoop
 						}
+					}
+
+					if err := conn.Close(); err != nil {
+						log.Warn().Err(err).Msg("Error closing connection")
 					}
 
 					// We're done
