@@ -190,11 +190,16 @@ func startWriter(fh io.Writer, closer func(), l zerolog.Logger, append bool, wg 
 		row := [HeaderArrayLen]string{}
 
 		for sr := range resultsChan {
+			var estr string
+			if sr.err != nil {
+				estr = sr.err.Error()
+			}
+
 			CsvHeaders[HeaderIdxServer] = sr.server
 			CsvHeaders[HeaderIdxUser] = sr.user
 			CsvHeaders[HeaderIdxCode] = strconv.FormatInt(sr.code, 10)
 			CsvHeaders[HeaderIdxMsg] = sr.msg
-			CsvHeaders[HeaderIdxErr] = sr.err.Error()
+			CsvHeaders[HeaderIdxErr] = estr
 
 			if err := c.Write(row[:]); err != nil {
 				l.Fatal().Err(err).Interface("Info", sr).Msg("Error writing output info")
