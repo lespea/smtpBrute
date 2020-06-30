@@ -3,7 +3,7 @@
 *.iml
 
 # Build files
-./smtpBrute
+smtpBrute
 *.exe
 
 # Txt files
