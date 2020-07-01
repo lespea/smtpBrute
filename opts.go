@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	DefaultConnsPerHost = 10
+	DefaultConnsPerHost = 100
 	DefaultOutName      = "findings.csv"
 	DefaultInput        = "users.txt"
 )
@@ -60,14 +60,14 @@ func validConns(count []string) error {
 		return errors.New("count should be a len 1")
 	}
 
-	_, err := strconv.ParseUint(count[0], 10, 8)
+	_, err := strconv.ParseUint(count[0], 10, 16)
 	return err
 }
 
 // Info we want from the user when running
 type opts struct {
 	// How many simultaneous outgoing connections we should try per host
-	connsPerHost uint8
+	connsPerHost uint16
 
 	// Fresh start
 	fresh bool
@@ -136,16 +136,16 @@ func getOpts() opts {
 		Str("Output CSV", outName).
 		Msg("Starting smtp brute")
 
-	conns := uint8(*connsPerHost)
+	conns := uint16(*connsPerHost)
 	if conns == 0 {
 		n := runtime.NumCPU()
 
 		if n < 1 {
 			conns = 1
-		} else if n > math.MaxUint8 {
-			conns = math.MaxUint8
+		} else if n > math.MaxUint16 {
+			conns = math.MaxUint16
 		} else {
-			conns = uint8(runtime.NumCPU())
+			conns = uint16(runtime.NumCPU())
 		}
 	}
 

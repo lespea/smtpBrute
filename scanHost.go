@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/textproto"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -112,6 +113,8 @@ func scanHost(
 							}
 							continue connLoop
 						}
+
+						time.Sleep(750 * time.Millisecond)
 					}
 
 					if err := conn.Close(); err != nil {
@@ -130,6 +133,10 @@ func scanHost(
 	<-done
 }
 
+var (
+	resetMsg = regexp.MustCompile(`reset by peer|broken pipe`)
+)
+
 // Test the host/user combo against the smtp server.  If it's valid send it to the valid channel
 func testUser(sr scanResults, results chan scanResults, conn *textproto.Conn) bool {
 	l := log.With().Str("Host", sr.server).Str("User", sr.user).Logger()
@@ -137,8 +144,7 @@ func testUser(sr scanResults, results chan scanResults, conn *textproto.Conn) bo
 	// Format the host/user combo we want to verify
 	verifyStr := fmt.Sprintf("%s:%s", sr.server, sr.user)
 	if id, err := conn.Cmd("VRFY %s", verifyStr); err != nil {
-
-		if strings.Contains(err.Error(), "reset by peer") {
+		if resetMsg.MatchString(err.Error()) {
 			l.Err(err).Msg("Connection reset; retrying")
 			return true
 		} else {
@@ -162,6 +168,10 @@ func testUser(sr scanResults, results chan scanResults, conn *textproto.Conn) bo
 			// Valid codes from https://cr.yp.to/smtp/vrfy.html
 		} else {
 			l.Info().Int("Code", code).Str("Msg", msg).Msg("Got response from server")
+			if strings.Contains(msg, "too many errors") {
+				l.Err(err).Msg("Connection reset; retrying")
+				return true
+			}
 
 			sr.code = int64(code)
 			sr.msg = msg

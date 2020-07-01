@@ -33,7 +33,6 @@ func main() {
 
 	var writerWG sync.WaitGroup
 	var srChan chan scanResults
-
 	// Put the cache map + go roroutines in their own scope so the outer cache map can be GC'd early
 	{
 		cacheName := opts.outName
