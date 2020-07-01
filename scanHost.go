@@ -113,8 +113,6 @@ func scanHost(
 							}
 							continue connLoop
 						}
-
-						time.Sleep(750 * time.Millisecond)
 					}
 
 					if err := conn.Close(); err != nil {
